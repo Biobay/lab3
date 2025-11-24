@@ -1,4 +1,4 @@
-from flask_wtf import FlaskForm
+from flask_wtf import FlaskForm, RecaptchaField
 from wtforms import StringField, PasswordField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
 
@@ -17,6 +17,7 @@ class RegistrationForm(FlaskForm):
         Regexp(r'(?=.*[@$!%*?&])', message="La password deve contenere almeno un carattere speciale (@$!%*?&).")
     ])
     confirm_password = PasswordField('Conferma Password', validators=[DataRequired(), EqualTo('password')])
+    recaptcha = RecaptchaField()
     submit = SubmitField('Registrati')
 
 class LoginForm(FlaskForm):

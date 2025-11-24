@@ -41,6 +41,9 @@
             {{ form.confirm_password.label(class="form-label") }}
             {{ form.confirm_password(class="form-control") }}
         </div>
+        <div class="mb-3">
+            {{ form.recaptcha }}
+        </div>
         <div class="d-grid">
             {{ form.submit(class="btn btn-primary") }}
         </div>

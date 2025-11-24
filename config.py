@@ -12,3 +12,8 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME') # Es: la-tua-email@gmail.com
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') # La password della tua email o una password per app
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
+
+    # Configurazione per reCAPTCHA
+    RECAPTCHA_PUBLIC_KEY = os.environ.get('RECAPTCHA_PUBLIC_KEY') # La tua Site Key
+    RECAPTCHA_PRIVATE_KEY = os.environ.get('RECAPTCHA_SECRET_KEY') # La tua Secret Key
+    RECAPTCHA_PARAMETERS = {'hl': 'it'}
