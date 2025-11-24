@@ -1,0 +1,11 @@
+Ciao {{ user.nome }},
+
+Benvenuto nella Banca Sicura!
+
+Per attivare il tuo account e completare la registrazione, per favore clicca sul seguente link:
+{{ activation_link }}
+
+Se non hai richiesto tu questa registrazione, per favore ignora questa email.
+
+Cordiali saluti,
+Il team della Banca Sicura

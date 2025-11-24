@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="col-md-12">
+    <h2>Dashboard Privata</h2>
+    <p>Benvenuto, {{ current_user.nome }}!</p>
+    <p>Questa è la tua area riservata. Da qui potrai gestire le tue operazioni.</p>
+</div>
+{% endblock %}
