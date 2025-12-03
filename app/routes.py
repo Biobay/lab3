@@ -9,7 +9,7 @@ dell'attivazione dell'account e la visualizzazione delle pagine.
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from app import db
-from app.models import User
+from app.models import User, Session
 from app.forms import RegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
 from app.email import send_activation_email, send_reset_password_email
 from sqlalchemy.exc import IntegrityError
@@ -24,6 +24,10 @@ try:
     limiter = Limiter(key_func=get_remote_address)
 except Exception:
     limiter = None
+
+def session_key_func():
+    # Preferisci email se presente, altrimenti IP
+    return request.form.get('email') or get_remote_address()
 
 @main.route('/')
 def index():
@@ -67,7 +71,7 @@ def register():
     return render_template('register.html', title='Registrazione', form=form)
 
 @main.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute") if limiter else (lambda f: f)
+@limiter.limit("10 per minute; 100 per hour", key_func=session_key_func) if limiter else (lambda f: f)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
@@ -82,6 +86,15 @@ def login():
         if user and user.check_password(form.password.data):
             if user.is_active:
                 login_user(user, remember=form.remember_me.data)
+                # crea una sessione tracciata
+                token = secrets.token_urlsafe(32)
+                sess = Session.new(
+                    user_id=user.id,
+                    token=token,
+                    user_agent=request.headers.get('User-Agent', ''),
+                    ip=get_remote_address()
+                )
+                db.session.commit()
                 user.reset_login_lock()
                 db.session.commit()
                 next_page = request.args.get('next')
@@ -98,6 +111,13 @@ def login():
 @main.route('/logout')
 @login_required
 def logout():
+    # revoca la sessione corrente se presente via header token
+    token = request.headers.get('X-Session-Token')
+    if token:
+        s = Session.query.filter_by(session_token=token, user_id=current_user.id, active=True).first()
+        if s:
+            s.revoke()
+            db.session.commit()
     logout_user()
     flash('Sei stato disconnesso.', 'success')
     return redirect(url_for('main.login'))
@@ -105,7 +125,33 @@ def logout():
 @main.route('/dashboard')
 @login_required
 def dashboard():
+    # aggiorna last_seen della sessione corrente se token presente
+    token = request.headers.get('X-Session-Token')
+    if token:
+        s = Session.query.filter_by(session_token=token, user_id=current_user.id, active=True).first()
+        if s:
+            s.touch()
+            db.session.commit()
     return render_template('dashboard.html', title='Dashboard')
+
+@main.route('/sessions')
+@login_required
+def sessions():
+    items = Session.query.filter_by(user_id=current_user.id).order_by(Session.active.desc(), Session.last_seen.desc()).all()
+    return render_template('sessions.html', title='Le mie sessioni', sessions=items)
+
+@main.route('/sessions/revoke', methods=['POST'])
+@login_required
+def revoke_session():
+    token = request.form.get('token')
+    s = Session.query.filter_by(session_token=token, user_id=current_user.id, active=True).first()
+    if s:
+        s.revoke()
+        db.session.commit()
+        flash('Sessione revocata.', 'success')
+    else:
+        flash('Sessione non trovata o già revocata.', 'warning')
+    return redirect(url_for('main.sessions'))
 
 @main.route('/activate/<token>')
 def activate(token):

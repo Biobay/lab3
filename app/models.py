@@ -79,3 +79,27 @@ class User(UserMixin, db.Model):
         except:
             return None
         return User.query.get(user_id)
+
+class Session(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    session_token = db.Column(db.String(128), unique=True, nullable=False)
+    user_agent = db.Column(db.String(255))
+    ip_address = db.Column(db.String(64))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+
+    user = db.relationship('User', backref=db.backref('sessions', lazy=True))
+
+    @staticmethod
+    def new(user_id: int, token: str, user_agent: str, ip: str):
+        s = Session(user_id=user_id, session_token=token, user_agent=user_agent, ip_address=ip)
+        db.session.add(s)
+        return s
+
+    def touch(self):
+        self.last_seen = datetime.utcnow()
+
+    def revoke(self):
+        self.active = False

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Le mie sessioni</h2>
+  <p>Visualizza e revoca le sessioni attive sui tuoi dispositivi.</p>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Stato</th>
+        <th>Dispositivo</th>
+        <th>IP</th>
+        <th>Creata</th>
+        <th>Ultima attività</th>
+        <th>Azione</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>
+          {% if s.active %}
+            <span class="badge bg-success">Attiva</span>
+          {% else %}
+            <span class="badge bg-secondary">Revocata</span>
+          {% endif %}
+        </td>
+        <td>{{ s.user_agent or '-' }}</td>
+        <td>{{ s.ip_address or '-' }}</td>
+        <td>{{ s.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{{ s.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>
+          {% if s.active %}
+          <form method="post" action="{{ url_for('main.revoke_session') }}">
+            <input type="hidden" name="token" value="{{ s.session_token }}">
+            <button type="submit" class="btn btn-sm btn-danger">Revoca</button>
+          </form>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
