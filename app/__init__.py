@@ -9,6 +9,7 @@ produzione, sviluppo) e previene problemi di importazione circolare.
 """
 
 from flask import Flask
+from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
@@ -28,6 +29,8 @@ login_manager.login_message = 'Per accedere a questa pagina è necessario effett
 login_manager.login_message_category = 'info'
 
 def create_app(config_class=Config):
+    # Carica variabili da .env se presente
+    load_dotenv()
     app = Flask(__name__)
     app.config.from_object(config_class)
 

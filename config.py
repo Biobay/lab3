@@ -14,6 +14,9 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance/app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Rate limit storage backend (Flask-Limiter)
+    # In sviluppo usiamo memoria per evitare dipendenze; per produzione usare Redis o altro backend.
+    RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URL') or os.environ.get('RATELIMIT_STORAGE_URI') or 'memory://'
     # Configurazione per Flask-Mail
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.googlemail.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))

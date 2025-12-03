@@ -45,12 +45,31 @@ Questo progetto è un'applicazione web Flask che implementa un modulo di registr
     pip install -r requirements.txt
     ```
 
-4.  **Inizializzare il database:**
+4.  **Configurare variabili ambiente (.env):**
+    Copia `.env.example` in `.env` e modifica i valori necessari (chiavi email, rate limiting, ecc.).
+    ```bash
+    cp .env.example .env
+    ```
+
+5.  **Inizializzare il database:**
     Questo comando crea il file del database (`app.db`) e le tabelle necessarie.
     ```bash
     python3 init_db.py
     ```
     Dovresti vedere il messaggio "Database initialized!".
+
+### Rate Limiting (Flask-Limiter)
+
+- In sviluppo, il progetto usa lo storage in memoria (`memory://`).
+- In produzione si consiglia un backend persistente (es. Redis).
+
+Per usare Redis:
+```bash
+pip install redis
+# Avvia un server Redis locale o usa un endpoint gestito
+# Imposta l'URI di storage nel tuo .env
+echo "RATELIMIT_STORAGE_URI=redis://localhost:6379" >> .env
+```
 
 ## Esecuzione dell'Applicazione
 
