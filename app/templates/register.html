@@ -28,7 +28,13 @@
         </div>
         <div class="mb-3">
             {{ form.password.label(class="form-label") }}
-            {{ form.password(class="form-control") }}
+            {{ form.password(class="form-control", id="password") }}
+            <div class="form-text">
+                Almeno 12 caratteri, una minuscola, una maiuscola, un numero e un carattere speciale (@$!%*?&).
+            </div>
+            <div class="progress mt-2" style="height: 6px;">
+                <div id="pwdStrengthBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+            </div>
             {% if form.password.errors %}
                 <div class="invalid-feedback d-block">
                     {% for error in form.password.errors %}
@@ -52,4 +58,34 @@
         <p>Hai già un account? <a href="{{ url_for('main.login') }}">Accedi qui</a>.</p>
     </div>
 </div>
+<script>
+    (function() {
+        const pwd = document.getElementById('password');
+        const bar = document.getElementById('pwdStrengthBar');
+        if (!pwd || !bar) return;
+        function scorePassword(p) {
+            let score = 0;
+            if (!p) return score;
+            const lengthOK = p.length >= 12;
+            const lower = /[a-z]/.test(p);
+            const upper = /[A-Z]/.test(p);
+            const digit = /\d/.test(p);
+            const special = /[@$!%*?&]/.test(p);
+            const variety = [lower, upper, digit, special].filter(Boolean).length;
+            score += lengthOK ? 40 : Math.min(p.length * 3, 30);
+            score += variety * 15; // up to 60
+            return Math.min(score, 100);
+        }
+        function updateBar() {
+            const s = scorePassword(pwd.value);
+            bar.style.width = s + '%';
+            bar.classList.remove('bg-danger','bg-warning','bg-success');
+            if (s < 40) bar.classList.add('bg-danger');
+            else if (s < 70) bar.classList.add('bg-warning');
+            else bar.classList.add('bg-success');
+        }
+        pwd.addEventListener('input', updateBar);
+        updateBar();
+    })();
+</script>
 {% endblock %}

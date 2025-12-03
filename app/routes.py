@@ -1,12 +1,29 @@
+"""
+Definizione delle route e della logica di visualizzazione (view).
+
+Questo file mappa gli URL alle funzioni Python (view functions). Quando un utente
+visita un URL, la funzione associata viene eseguita. Contiene la logica
+principale dell'applicazione, come la gestione della registrazione, del login,
+dell'attivazione dell'account e la visualizzazione delle pagine.
+"""
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from app import db
 from app.models import User
-from app.forms import RegistrationForm, LoginForm
-from app.email import send_activation_email
+from app.forms import RegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
+from app.email import send_activation_email, send_reset_password_email
 from sqlalchemy.exc import IntegrityError
 from flask_login import login_user, logout_user, login_required, current_user
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 main = Blueprint('main', __name__)
+
+# Attach per-route limits via decorator using the app-level limiter
+try:
+    limiter = Limiter(key_func=get_remote_address)
+except Exception:
+    limiter = None
 
 @main.route('/')
 def index():
@@ -38,6 +55,7 @@ def register():
                 flash('Un link di attivazione è stato inviato alla tua email.', 'info')
                 return redirect(url_for('main.login'))
             except Exception as e:
+                
                 db.session.rollback()
                 current_app.logger.error(f"Errore nell'invio dell'email di attivazione: {e}")
                 flash('Si è verificato un errore durante la registrazione. Impossibile inviare l\'email di attivazione.', 'danger')
@@ -49,20 +67,31 @@ def register():
     return render_template('register.html', title='Registrazione', form=form)
 
 @main.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute") if limiter else (lambda f: f)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
-    form = LoginForm()
+    form = LoginForm() # convalida del CSRF inclusa
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            # Check account lock
+            if user.is_locked():
+                flash('Account temporaneamente bloccato per troppi tentativi. Riprova più tardi.', 'warning')
+                return render_template('login.html', title='Accesso', form=form)
         if user and user.check_password(form.password.data):
             if user.is_active:
                 login_user(user, remember=form.remember_me.data)
+                user.reset_login_lock()
+                db.session.commit()
                 next_page = request.args.get('next')
                 return redirect(next_page) if next_page else redirect(url_for('main.dashboard'))
             else:
                 flash('Il tuo account non è ancora stato attivato. Controlla la console per il link di attivazione.', 'warning')
         else:
+            if user:
+                user.register_failed_login(max_attempts=5, lock_minutes=15)
+                db.session.commit()
             flash('Accesso non riuscito. Controlla email e password.', 'danger')
     return render_template('login.html', title='Accesso', form=form)
 
@@ -90,3 +119,37 @@ def activate(token):
     else:
         flash('Link di attivazione non valido o scaduto.', 'danger')
         return redirect(url_for('main.register'))
+
+@main.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("3 per 10 minutes") if limiter else (lambda f: f)
+def forgot_password():
+    form = RequestResetForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            try:
+                send_reset_password_email(user)
+                flash('Ti abbiamo inviato un email con le istruzioni per resettare la password.', 'info')
+                return redirect(url_for('main.login'))
+            except Exception as e:
+                current_app.logger.error(f"Errore invio email reset: {e}")
+                flash('Impossibile inviare l\'email di reset in questo momento.', 'danger')
+        else:
+            # In caso di email non trovata, manteniamo risposta generica per sicurezza
+            flash('Se l\'email è registrata, riceverai un messaggio con le istruzioni.', 'info')
+            return redirect(url_for('main.login'))
+    return render_template('forgot_password.html', title='Password dimenticata', form=form)
+
+@main.route('/reset/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    user = User.verify_reset_token(token)
+    if not user:
+        flash('Il link di reset non è valido o è scaduto.', 'danger')
+        return redirect(url_for('main.forgot_password'))
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash('La tua password è stata aggiornata. Ora puoi effettuare il login.', 'success')
+        return redirect(url_for('main.login'))
+    return render_template('reset_password.html', title='Reset Password', form=form)

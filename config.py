@@ -1,3 +1,12 @@
+"""
+File di configurazione per l'applicazione Flask.
+
+Questo modulo definisce le classi di configurazione per l'applicazione.
+La classe `Config` carica le impostazioni da variabili d'ambiente o utilizza
+valori di default, separando la configurazione dal codice sorgente per
+maggiore sicurezza e flessibilità.
+"""
+
 import os
 
 class Config:
@@ -17,3 +26,7 @@ class Config:
     RECAPTCHA_PUBLIC_KEY = os.environ.get('RECAPTCHA_PUBLIC_KEY') # La tua Site Key
     RECAPTCHA_PRIVATE_KEY = os.environ.get('RECAPTCHA_SECRET_KEY') # La tua Secret Key
     RECAPTCHA_PARAMETERS = {'hl': 'it'}
+
+    # Rate limiting storage backend (Flask-Limiter)
+    # Examples: 'redis://localhost:6379', 'memcached://localhost:11211'
+    RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI')

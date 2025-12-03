@@ -1,3 +1,12 @@
+"""
+Modulo per la gestione e l'invio di email.
+
+Questo file contiene le funzioni ausiliarie per l'invio di email dall'applicazione,
+come l'email di attivazione dell'account. L'invio viene eseguito in un thread
+separato per non bloccare la richiesta principale e migliorare la reattività
+dell'applicazione.
+"""
+
 from flask import render_template, url_for, current_app
 from flask_mail import Message
 from app import mail
@@ -28,3 +37,11 @@ def send_activation_email(user):
                recipients=[user.email],
                text_body=render_template('email/activation.txt', user=user, activation_link=activation_link),
                html_body=render_template('email/activation.html', user=user, activation_link=activation_link))
+
+def send_reset_password_email(user):
+    token = user.get_reset_token()
+    reset_link = url_for('main.reset_password', token=token, _external=True)
+    send_email('Reset della tua password',
+               recipients=[user.email],
+               text_body=render_template('email/reset_password.txt', user=user, reset_link=reset_link),
+               html_body=render_template('email/reset_password.html', user=user, reset_link=reset_link))

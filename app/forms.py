@@ -1,6 +1,16 @@
+"""
+Definizione dei form dell'applicazione.
+
+Questo modulo utilizza la libreria Flask-WTF per definire i form web,
+come il form di registrazione e di login. Ogni classe di form specifica
+i campi, le etichette e i validatori necessari per la raccolta e la
+validazione dei dati inviati dall'utente.
+"""
+
 from flask_wtf import FlaskForm, RecaptchaField
-from wtforms import StringField, PasswordField, SubmitField, BooleanField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, ValidationError
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
+from app.models import User
 
 class RegistrationForm(FlaskForm):
     nome = StringField('Nome', validators=[DataRequired()])
@@ -24,4 +34,30 @@ class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     remember_me = BooleanField('Ricordami')
+    recaptcha = RecaptchaField()
     submit = SubmitField('Accedi')
+
+class RequestResetForm(FlaskForm):
+    email = StringField('Email',
+                        validators=[DataRequired(), Email()])
+    recaptcha = RecaptchaField()
+    submit = SubmitField('Richiedi Reset Password')
+
+    def validate_email(self, email):
+        user = User.query.filter_by(email=email.data).first()
+        if user is None:
+            raise ValidationError('Nessun account trovato con questa email. Devi prima registrarti.')
+
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('Nuova Password', validators=[
+        DataRequired(),
+        Length(min=12, message="La password deve essere lunga almeno 12 caratteri."),
+        Regexp(r'(?=.*[a-z])', message="La password deve contenere almeno una lettera minuscola."),
+        Regexp(r'(?=.*[A-Z])', message="La password deve contenere almeno una lettera maiuscola."),
+        Regexp(r'(?=.*\d)', message="La password deve contenere almeno un numero."),
+        Regexp(r'(?=.*[@$!%*?&])', message="La password deve contenere almeno un carattere speciale (@$!%*?&).")
+    ])
+    confirm_password = PasswordField('Conferma Nuova Password',
+                                     validators=[DataRequired(), EqualTo('password', message='Le password devono corrispondere.')])
+    submit = SubmitField('Resetta Password')

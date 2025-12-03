@@ -1,3 +1,11 @@
+"""
+Entry point principale per l'applicazione Flask.
+
+Questo script avvia l'applicazione. Crea un'istanza dell'app utilizzando
+la factory `create_app` e la esegue. Può anche essere utilizzato per
+definire comandi CLI personalizzati per la gestione dell'applicazione.
+"""
+
 from app import create_app, db
 from app.models import User
 
