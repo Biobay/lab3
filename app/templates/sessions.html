@@ -31,6 +31,7 @@
         <td>
           {% if s.active %}
           <form method="post" action="{{ url_for('main.revoke_session') }}">
+            {{ csrf_token() }}
             <input type="hidden" name="token" value="{{ s.session_token }}">
             <button type="submit" class="btn btn-sm btn-danger">Revoca</button>
           </form>

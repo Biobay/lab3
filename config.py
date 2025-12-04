@@ -32,4 +32,21 @@ class Config:
 
     # Rate limiting storage backend (Flask-Limiter)
     # Examples: 'redis://localhost:6379', 'memcached://localhost:11211'
-    RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI')
+    # (già definito sopra con fallback a 'memory://')
+
+    # Cookie di sessione custom per enforcement revoche
+    SESSION_TOKEN_COOKIE_NAME = os.environ.get('SESSION_TOKEN_COOKIE_NAME', 'session_token')
+    SESSION_TOKEN_COOKIE_SECURE = os.environ.get('SESSION_TOKEN_COOKIE_SECURE', 'false').lower() in ['true', 'on', '1']
+    SESSION_TOKEN_COOKIE_SAMESITE = os.environ.get('SESSION_TOKEN_COOKIE_SAMESITE', 'Lax')
+    SESSION_TOKEN_COOKIE_HTTPONLY = True
+    SESSION_TOKEN_COOKIE_MAX_AGE = int(os.environ.get('SESSION_TOKEN_COOKIE_MAX_AGE', 60*60*24*30))  # 30 giorni
+
+    # Allinea anche i cookie nativi di Flask
+    SESSION_COOKIE_SECURE = SESSION_TOKEN_COOKIE_SECURE
+    REMEMBER_COOKIE_SECURE = SESSION_TOKEN_COOKIE_SECURE
+    SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+
+    # HTTPS/HSTS (abilitare in produzione)
+    FORCE_HTTPS = os.environ.get('FORCE_HTTPS', 'false').lower() in ['true', 'on', '1']
+    HSTS_ENABLED = os.environ.get('HSTS_ENABLED', 'false').lower() in ['true', 'on', '1']
+    HSTS_MAX_AGE = int(os.environ.get('HSTS_MAX_AGE', 31536000))  # 1 anno

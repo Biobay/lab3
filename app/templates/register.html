@@ -38,9 +38,12 @@
             {% if form.password.errors %}
                 <div class="invalid-feedback d-block">
                     {% for error in form.password.errors %}
-                        <span>{{ error }}</span><br>
-                    {% endfor %}
-                </div>
+                    <div class="mt-2">
+                        <div class="progress" style="height: 6px;">
+                            <div id="pwd-strength-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small id="pwd-strength-text" class="text-muted">Forza password: —</small>
+                    </div>
             {% endif %}
         </div>
         <div class="mb-3">
@@ -64,6 +67,31 @@
         const bar = document.getElementById('pwdStrengthBar');
         if (!pwd || !bar) return;
         function scorePassword(p) {
+        {% block scripts %}
+          {{ super() }}
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js" integrity="sha512-8iQmLQp9cKQbI7QkYz4x5P4BfRrwQHqzJ3PpZC3bF5lNf7kJ8m5Jv2H0TTw5gkXo5o7Q4dVbq6v2yq0cSxX3Cg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+          <script>
+            (function() {
+              const input = document.getElementById('password');
+              if (!input) return;
+              const bar = document.getElementById('pwd-strength-bar');
+              const text = document.getElementById('pwd-strength-text');
+              const labels = ['Molto debole', 'Debole', 'Discreto', 'Buona', 'Ottima'];
+              const classes = ['bg-danger','bg-danger','bg-warning','bg-info','bg-success'];
+              input.addEventListener('input', function() {
+                const val = input.value || '';
+                let score = 0;
+                if (val) {
+                  try { score = zxcvbn(val).score; } catch(e) { score = 0; }
+                }
+                const pct = (score + 1) * 20; // 0..5 -> 20..100
+                bar.style.width = pct + '%';
+                bar.className = 'progress-bar ' + classes[score];
+                text.textContent = 'Forza password: ' + labels[score];
+              });
+            })();
+          </script>
+        {% endblock %}
             let score = 0;
             if (!p) return score;
             const lengthOK = p.length >= 12;

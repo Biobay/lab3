@@ -187,7 +187,19 @@ def mfa():
             session.pop('preauth_user_id', None)
             db.session.commit()
             flash('Accesso verificato.', 'success')
-            return redirect(url_for('main.dashboard'))
+            # imposta cookie session_token sicuro
+            cookie_name = current_app.config.get('SESSION_TOKEN_COOKIE_NAME', 'session_token')
+            resp = redirect(url_for('main.dashboard'))
+            resp.set_cookie(
+                cookie_name,
+                token,
+                max_age=current_app.config.get('SESSION_TOKEN_COOKIE_MAX_AGE', 60*60*24*30),
+                httponly=current_app.config.get('SESSION_TOKEN_COOKIE_HTTPONLY', True),
+                secure=current_app.config.get('SESSION_TOKEN_COOKIE_SECURE', False),
+                samesite=current_app.config.get('SESSION_TOKEN_COOKIE_SAMESITE', 'Lax'),
+                path='/'
+            )
+            return resp
         else:
             db.session.commit()
             flash('Codice non corretto.', 'danger')
@@ -229,8 +241,9 @@ def mfa_resend():
 @main.route('/logout')
 @login_required
 def logout():
-    # revoca la sessione corrente se presente via header token
-    token = request.headers.get('X-Session-Token')
+    # revoca la sessione corrente se presente (preferisci cookie rispetto all'header)
+    cookie_name = current_app.config.get('SESSION_TOKEN_COOKIE_NAME', 'session_token')
+    token = request.cookies.get(cookie_name) or request.headers.get('X-Session-Token')
     if token:
         s = Session.query.filter_by(session_token=token, user_id=current_user.id, active=True).first()
         if s:
@@ -245,18 +258,17 @@ def logout():
     )
     logout_user()
     flash('Sei stato disconnesso.', 'success')
-    return redirect(url_for('main.login'))
+    resp = redirect(url_for('main.login'))
+    try:
+        resp.delete_cookie(cookie_name, path='/')
+    except Exception:
+        pass
+    return resp
 
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    # aggiorna last_seen della sessione corrente se token presente
-    token = request.headers.get('X-Session-Token')
-    if token:
-        s = Session.query.filter_by(session_token=token, user_id=current_user.id, active=True).first()
-        if s:
-            s.touch()
-            db.session.commit()
+    # l'aggiornamento last_seen è gestito dal before_request globale
     return render_template('dashboard.html', title='Dashboard')
 
 @main.route('/sessions')
@@ -276,7 +288,15 @@ def revoke_session():
         flash('Sessione revocata.', 'success')
     else:
         flash('Sessione non trovata o già revocata.', 'warning')
-    return redirect(url_for('main.sessions'))
+    # se stai revocando la sessione corrente, rimuovi anche il cookie
+    cookie_name = current_app.config.get('SESSION_TOKEN_COOKIE_NAME', 'session_token')
+    resp = redirect(url_for('main.sessions'))
+    try:
+        if token and request.cookies.get(cookie_name) == token:
+            resp.delete_cookie(cookie_name, path='/')
+    except Exception:
+        pass
+    return resp
 
 @main.route('/activate/<token>')
 def activate(token):
