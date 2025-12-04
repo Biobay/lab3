@@ -41,7 +41,10 @@ class User(UserMixin, db.Model):
         self.password_hash = ph.hash(password)
 
     def check_password(self, password):
-        return ph.verify(self.password_hash, password)
+        try:
+            return ph.verify(self.password_hash, password)
+        except Exception:
+            return False
 
     def is_locked(self):
         if self.lock_until is None:
@@ -104,6 +107,17 @@ class Session(db.Model):
 
     def revoke(self):
         self.active = False
+
+class SecurityEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    event_type = db.Column(db.String(64), nullable=False)
+    message = db.Column(db.String(512), nullable=True)
+    ip_address = db.Column(db.String(64))
+    user_agent = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('security_events', lazy=True))
 
 class LoginChallenge(db.Model):
     id = db.Column(db.Integer, primary_key=True)

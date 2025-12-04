@@ -2,8 +2,19 @@
 
 {% block content %}
 <div class="col-md-12">
-    <h2>Dashboard Privata</h2>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0">Dashboard Privata</h2>
+        <a href="{{ url_for('main.sessions') }}" class="btn btn-outline-primary">Le mie sessioni</a>
+    </div>
     <p>Benvenuto, {{ current_user.nome }}!</p>
     <p>Questa è la tua area riservata. Da qui potrai gestire le tue operazioni.</p>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Suggerimento sicurezza</h5>
+            <p class="card-text">Controlla le tue sessioni attive, i dispositivi recenti e gli IP collegati dalla sezione <strong>Le mie sessioni</strong>.</p>
+            <a href="{{ url_for('main.sessions') }}" class="btn btn-primary">Vai alle sessioni</a>
+        </div>
+    </div>
 </div>
 {% endblock %}

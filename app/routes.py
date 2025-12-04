@@ -11,6 +11,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 import secrets
 from app import db
 from app.models import User, Session, LoginChallenge
+from app.security import log_security_event
 from app.forms import RegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
 from app.email import send_activation_email, send_reset_password_email
 from sqlalchemy.exc import IntegrityError
@@ -56,6 +57,13 @@ def register():
             try:
                 db.session.flush()
                 send_activation_email(user)
+                log_security_event(
+                    event_type='registration_success',
+                    user_id=user.id,
+                    message='User registered and activation email sent',
+                    ip_address=get_remote_address(),
+                    user_agent=request.headers.get('User-Agent','')
+                )
                 db.session.commit()
                 flash('Un link di attivazione è stato inviato alla tua email.', 'info')
                 return redirect(url_for('main.login'))
@@ -67,6 +75,13 @@ def register():
 
         except IntegrityError:
             db.session.rollback()
+            log_security_event(
+                event_type='registration_conflict',
+                user_id=None,
+                message='Duplicate email/codice_fiscale/telefono during registration',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent','')
+            )
             flash('Errore: Email, codice fiscale o numero di telefono già registrati.', 'danger')
             
     return render_template('register.html', title='Registrazione', form=form)
@@ -83,6 +98,13 @@ def login():
             # Check account lock
             if user.is_locked():
                 flash('Account temporaneamente bloccato per troppi tentativi. Riprova più tardi.', 'warning')
+                log_security_event(
+                    event_type='account_locked',
+                    user_id=user.id,
+                    message='Login attempted while account locked',
+                    ip_address=get_remote_address(),
+                    user_agent=request.headers.get('User-Agent','')
+                )
                 return render_template('login.html', title='Accesso', form=form)
         if user and user.check_password(form.password.data):
             if user.is_active:
@@ -94,6 +116,13 @@ def login():
                     send_mfa_code_email(user, code)
                 except Exception as e:
                     current_app.logger.error(f"Errore invio codice MFA: {e}")
+                log_security_event(
+                    event_type='mfa_code_sent',
+                    user_id=user.id,
+                    message='MFA code generated and sent via email',
+                    ip_address=get_remote_address(),
+                    user_agent=request.headers.get('User-Agent','')
+                )
                 db.session.commit()
                 # salva l'utente pre-autenticato nella sessione server-side
                 session['preauth_user_id'] = user.id
@@ -106,6 +135,13 @@ def login():
             if user:
                 user.register_failed_login(max_attempts=5, lock_minutes=15)
                 db.session.commit()
+                log_security_event(
+                    event_type='login_failed',
+                    user_id=user.id,
+                    message='Invalid password',
+                    ip_address=get_remote_address(),
+                    user_agent=request.headers.get('User-Agent','')
+                )
             flash('Accesso non riuscito. Controlla email e password.', 'danger')
     return render_template('login.html', title='Accesso', form=form)
 
@@ -121,6 +157,13 @@ def mfa():
         challenge = LoginChallenge.query.filter_by(user_id=user_id, consumed=False).order_by(LoginChallenge.expires_at.desc()).first()
         if not challenge or challenge.is_expired():
             flash('Codice scaduto o non valido. Richiedi un nuovo accesso.', 'danger')
+            log_security_event(
+                event_type='mfa_invalid_or_expired',
+                user_id=user_id,
+                message='MFA code invalid or expired',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent','')
+            )
             return redirect(url_for('main.login'))
         challenge.register_attempt()
         if challenge.attempts > 5:
@@ -148,6 +191,13 @@ def mfa():
         else:
             db.session.commit()
             flash('Codice non corretto.', 'danger')
+            log_security_event(
+                event_type='mfa_failure',
+                user_id=user_id,
+                message='Incorrect MFA code',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent','')
+            )
             return render_template('mfa.html', title='Verifica codice', user_id=user_id)
     return render_template('mfa.html', title='Verifica codice', user_id=user_id)
 
@@ -166,6 +216,13 @@ def mfa_resend():
     except Exception as e:
         current_app.logger.error(f"Errore reinvio codice MFA: {e}")
     db.session.commit()
+    log_security_event(
+        event_type='mfa_code_resent',
+        user_id=user.id,
+        message='MFA code resent',
+        ip_address=get_remote_address(),
+        user_agent=request.headers.get('User-Agent','')
+    )
     flash('Nuovo codice inviato.', 'info')
     return render_template('mfa.html', title='Verifica codice', user_id=user.id)
 
@@ -179,6 +236,13 @@ def logout():
         if s:
             s.revoke()
             db.session.commit()
+    log_security_event(
+        event_type='logout',
+        user_id=current_user.id,
+        message='User logged out',
+        ip_address=get_remote_address(),
+        user_agent=request.headers.get('User-Agent','')
+    )
     logout_user()
     flash('Sei stato disconnesso.', 'success')
     return redirect(url_for('main.login'))
@@ -221,6 +285,13 @@ def activate(token):
         user.is_active = True
         user.activation_token = None
         db.session.commit()
+        log_security_event(
+            event_type='account_activated',
+            user_id=user.id,
+            message='Account activated via token',
+            ip_address=get_remote_address(),
+            user_agent=request.headers.get('User-Agent','')
+        )
         flash('Il tuo account è stato attivato! Ora puoi effettuare il login.', 'success')
         return redirect(url_for('main.login'))
     else:
@@ -243,6 +314,13 @@ def forgot_password():
                 flash('Impossibile inviare l\'email di reset in questo momento.', 'danger')
         else:
             # In caso di email non trovata, manteniamo risposta generica per sicurezza
+            log_security_event(
+                event_type='password_reset_unknown_email',
+                user_id=None,
+                message='Password reset requested for unknown email',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent','')
+            )
             flash('Se l\'email è registrata, riceverai un messaggio con le istruzioni.', 'info')
             return redirect(url_for('main.login'))
     return render_template('forgot_password.html', title='Password dimenticata', form=form)
@@ -252,11 +330,25 @@ def reset_password(token):
     user = User.verify_reset_token(token)
     if not user:
         flash('Il link di reset non è valido o è scaduto.', 'danger')
+        log_security_event(
+            event_type='password_reset_invalid_token',
+            user_id=None,
+            message='Invalid or expired password reset token',
+            ip_address=get_remote_address(),
+            user_agent=request.headers.get('User-Agent','')
+        )
         return redirect(url_for('main.forgot_password'))
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user.set_password(form.password.data)
         db.session.commit()
+        log_security_event(
+            event_type='password_reset_success',
+            user_id=user.id,
+            message='Password reset successful',
+            ip_address=get_remote_address(),
+            user_agent=request.headers.get('User-Agent','')
+        )
         flash('La tua password è stata aggiornata. Ora puoi effettuare il login.', 'success')
         return redirect(url_for('main.login'))
     return render_template('reset_password.html', title='Reset Password', form=form)
