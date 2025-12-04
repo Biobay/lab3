@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width: 480px;">
+  <h2>Verifica a due fattori</h2>
+  <p>Inserisci il codice di sicurezza che ti abbiamo inviato via email.</p>
+  <form method="post" action="{{ url_for('main.mfa') }}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="mfa-alerts">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category=='success' else ('danger' if category=='danger' else 'info') }}" role="alert">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <input type="hidden" name="user_id" value="{{ user_id }}" />
+    <div class="mb-3">
+      <label for="code" class="form-label">Codice di sicurezza</label>
+      <input type="text" class="form-control" id="code" name="code" maxlength="6" required placeholder="000000" />
+    </div>
+    <button type="submit" class="btn btn-primary">Verifica</button>
+    <a href="{{ url_for('main.login') }}" class="btn btn-link">Annulla</a>
+  </form>
+</div>
+<script>
+  // Nasconde i messaggi flash dopo 2 secondi
+  setTimeout(function() {
+    var alerts = document.getElementById('mfa-alerts');
+    if (alerts) {
+      alerts.style.transition = 'opacity 300ms';
+      alerts.style.opacity = '0';
+      setTimeout(function(){ if (alerts.parentNode) alerts.parentNode.removeChild(alerts); }, 350);
+    }
+  }, 2000);
+</script>
+{% endblock %}

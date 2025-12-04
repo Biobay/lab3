@@ -15,6 +15,7 @@ import secrets
 from flask_login import UserMixin
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer as Serializer
+from sqlalchemy.orm import validates
 
 ph = PasswordHasher()
 
@@ -103,3 +104,32 @@ class Session(db.Model):
 
     def revoke(self):
         self.active = False
+
+class LoginChallenge(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    consumed = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', backref=db.backref('login_challenges', lazy=True))
+
+    @staticmethod
+    def new_for(user_id: int, code: str, ttl_minutes: int = 10):
+        challenge = LoginChallenge(
+            user_id=user_id,
+            code=code,
+            expires_at=datetime.utcnow() + timedelta(minutes=ttl_minutes),
+        )
+        db.session.add(challenge)
+        return challenge
+
+    def is_expired(self):
+        return datetime.utcnow() > self.expires_at
+
+    def register_attempt(self):
+        self.attempts = (self.attempts or 0) + 1
+
+    def consume(self):
+        self.consumed = True

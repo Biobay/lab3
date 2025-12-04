@@ -7,9 +7,10 @@ principale dell'applicazione, come la gestione della registrazione, del login,
 dell'attivazione dell'account e la visualizzazione delle pagine.
 """
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session
+import secrets
 from app import db
-from app.models import User, Session
+from app.models import User, Session, LoginChallenge
 from app.forms import RegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
 from app.email import send_activation_email, send_reset_password_email
 from sqlalchemy.exc import IntegrityError
@@ -85,20 +86,20 @@ def login():
                 return render_template('login.html', title='Accesso', form=form)
         if user and user.check_password(form.password.data):
             if user.is_active:
-                login_user(user, remember=form.remember_me.data)
-                # crea una sessione tracciata
-                token = secrets.token_urlsafe(32)
-                sess = Session.new(
-                    user_id=user.id,
-                    token=token,
-                    user_agent=request.headers.get('User-Agent', ''),
-                    ip=get_remote_address()
-                )
+                # 2FA: genera codice e invia email, salva pre-auth in sessione, mostra pagina MFA
+                code = f"{secrets.randbelow(1000000):06d}"
+                challenge = LoginChallenge.new_for(user.id, code, ttl_minutes=10)
+                try:
+                    from app.email import send_mfa_code_email
+                    send_mfa_code_email(user, code)
+                except Exception as e:
+                    current_app.logger.error(f"Errore invio codice MFA: {e}")
                 db.session.commit()
-                user.reset_login_lock()
-                db.session.commit()
-                next_page = request.args.get('next')
-                return redirect(next_page) if next_page else redirect(url_for('main.dashboard'))
+                # salva l'utente pre-autenticato nella sessione server-side
+                session['preauth_user_id'] = user.id
+                # Mostra direttamente la pagina per inserire il codice
+                flash('Ti abbiamo inviato un codice di sicurezza via email. Inseriscilo qui sotto per accedere.', 'info')
+                return render_template('mfa.html', title='Verifica codice', user_id=user.id)
             else:
                 flash('Il tuo account non è ancora stato attivato. Controlla la console per il link di attivazione.', 'warning')
         else:
@@ -107,6 +108,66 @@ def login():
                 db.session.commit()
             flash('Accesso non riuscito. Controlla email e password.', 'danger')
     return render_template('login.html', title='Accesso', form=form)
+
+@main.route('/mfa', methods=['GET', 'POST'])
+def mfa():
+    # prendi l'utente pre-autenticato dalla sessione
+    user_id = session.get('preauth_user_id') or request.args.get('user_id', type=int) or request.form.get('user_id', type=int)
+    if not user_id:
+        flash('Sessione MFA non valida.', 'danger')
+        return redirect(url_for('main.login'))
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip()
+        challenge = LoginChallenge.query.filter_by(user_id=user_id, consumed=False).order_by(LoginChallenge.expires_at.desc()).first()
+        if not challenge or challenge.is_expired():
+            flash('Codice scaduto o non valido. Richiedi un nuovo accesso.', 'danger')
+            return redirect(url_for('main.login'))
+        challenge.register_attempt()
+        if challenge.attempts > 5:
+            flash('Troppi tentativi. Riprova più tardi.', 'warning')
+            db.session.commit()
+            return redirect(url_for('main.login'))
+        if code == challenge.code:
+            challenge.consume()
+            # esegui login e crea sessione tracciata
+            user = User.query.get(user_id)
+            login_user(user, remember=True, fresh=True)
+            token = secrets.token_urlsafe(32)
+            Session.new(
+                user_id=user.id,
+                token=token,
+                user_agent=request.headers.get('User-Agent', ''),
+                ip=get_remote_address()
+            )
+            user.reset_login_lock()
+            # pulisci stato pre-auth dalla sessione
+            session.pop('preauth_user_id', None)
+            db.session.commit()
+            flash('Accesso verificato.', 'success')
+            return redirect(url_for('main.dashboard'))
+        else:
+            db.session.commit()
+            flash('Codice non corretto.', 'danger')
+            return render_template('mfa.html', title='Verifica codice', user_id=user_id)
+    return render_template('mfa.html', title='Verifica codice', user_id=user_id)
+
+@main.route('/mfa/resend', methods=['POST'])
+def mfa_resend():
+    user_id = session.get('preauth_user_id')
+    if not user_id:
+        flash('Sessione MFA non valida.', 'danger')
+        return redirect(url_for('main.login'))
+    user = User.query.get(user_id)
+    code = f"{secrets.randbelow(1000000):06d}"
+    LoginChallenge.new_for(user.id, code, ttl_minutes=10)
+    try:
+        from app.email import send_mfa_code_email
+        send_mfa_code_email(user, code)
+    except Exception as e:
+        current_app.logger.error(f"Errore reinvio codice MFA: {e}")
+    db.session.commit()
+    flash('Nuovo codice inviato.', 'info')
+    return render_template('mfa.html', title='Verifica codice', user_id=user.id)
 
 @main.route('/logout')
 @login_required

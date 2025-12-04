@@ -45,3 +45,11 @@ def send_reset_password_email(user):
                recipients=[user.email],
                text_body=render_template('email/reset_password.txt', user=user, reset_link=reset_link),
                html_body=render_template('email/reset_password.html', user=user, reset_link=reset_link))
+
+def send_mfa_code_email(user, code):
+    send_email(
+        'Il tuo codice di sicurezza',
+        recipients=[user.email],
+        text_body=f"Ciao {user.nome},\n\nIl tuo codice di sicurezza è: {code}.\nQuesto codice scade tra 10 minuti.\n\nSe non hai richiesto l'accesso, ignora questa email.",
+        html_body=f"<p>Ciao {user.nome},</p><p><strong>Codice di sicurezza:</strong> {code}</p><p>Il codice scade tra 10 minuti.</p><p>Se non hai richiesto l'accesso, ignora questa email.</p>"
+    )
