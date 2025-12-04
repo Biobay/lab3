@@ -32,18 +32,18 @@
             <div class="form-text">
                 Almeno 12 caratteri, una minuscola, una maiuscola, un numero e un carattere speciale (@$!%*?&).
             </div>
-            <div class="progress mt-2" style="height: 6px;">
-                <div id="pwdStrengthBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+            <div class="mt-2">
+                <div class="progress" style="height: 6px;">
+                    <div id="pwd-strength-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <small id="pwd-strength-text" class="text-muted">Forza password: —</small>
             </div>
             {% if form.password.errors %}
                 <div class="invalid-feedback d-block">
                     {% for error in form.password.errors %}
-                    <div class="mt-2">
-                        <div class="progress" style="height: 6px;">
-                            <div id="pwd-strength-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
-                        </div>
-                        <small id="pwd-strength-text" class="text-muted">Forza password: —</small>
-                    </div>
+                        <span>{{ error }}</span><br>
+                    {% endfor %}
+                </div>
             {% endif %}
         </div>
         <div class="mb-3">
@@ -61,59 +61,54 @@
         <p>Hai già un account? <a href="{{ url_for('main.login') }}">Accedi qui</a>.</p>
     </div>
 </div>
-<script>
-    (function() {
-        const pwd = document.getElementById('password');
-        const bar = document.getElementById('pwdStrengthBar');
-        if (!pwd || !bar) return;
-        function scorePassword(p) {
-        {% block scripts %}
-          {{ super() }}
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js" integrity="sha512-8iQmLQp9cKQbI7QkYz4x5P4BfRrwQHqzJ3PpZC3bF5lNf7kJ8m5Jv2H0TTw5gkXo5o7Q4dVbq6v2yq0cSxX3Cg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-          <script>
-            (function() {
-              const input = document.getElementById('password');
-              if (!input) return;
-              const bar = document.getElementById('pwd-strength-bar');
-              const text = document.getElementById('pwd-strength-text');
-              const labels = ['Molto debole', 'Debole', 'Discreto', 'Buona', 'Ottima'];
-              const classes = ['bg-danger','bg-danger','bg-warning','bg-info','bg-success'];
-              input.addEventListener('input', function() {
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        (function() {
+            const input = document.getElementById('password');
+            const bar = document.getElementById('pwd-strength-bar');
+            const text = document.getElementById('pwd-strength-text');
+            if (!input || !bar || !text) return;
+
+            function strength(val) {
+                const length = val.length;
+                const lower = /[a-z]/.test(val);
+                const upper = /[A-Z]/.test(val);
+                const digit = /\d/.test(val);
+                const special = /[@$!%*?&]/.test(val);
+                const classes = [lower, upper, digit, special].filter(Boolean).length;
+                // Base score by rules
+                let s = 0;
+                if (length >= 12) s += 30; else s += Math.min(length * 2, 24);
+                s += classes * 15; // up to 60
+                // Bonus for very long
+                if (length >= 16 && classes >= 3) s += 10;
+                // Clamp
+                s = Math.max(10, Math.min(s, 100));
+                // Level mapping
+                let level = 0; // 0 red, 1 orange, 2 yellow, 3 blue, 4 green
+                if (s < 40) level = 0;
+                else if (s < 60) level = 1;
+                else if (s < 75) level = 2;
+                else if (s < 90) level = 3;
+                else level = 4;
+                return { score: s, level, lower, upper, digit, special, length };
+            }
+
+            const levelClass = ['bg-danger','bg-warning','bg-warning','bg-info','bg-success'];
+            const levelLabel = ['Molto debole','Debole','Discreta','Buona','Ottima'];
+
+            function render() {
                 const val = input.value || '';
-                let score = 0;
-                if (val) {
-                  try { score = zxcvbn(val).score; } catch(e) { score = 0; }
-                }
-                const pct = (score + 1) * 20; // 0..5 -> 20..100
-                bar.style.width = pct + '%';
-                bar.className = 'progress-bar ' + classes[score];
-                text.textContent = 'Forza password: ' + labels[score];
-              });
-            })();
-          </script>
-        {% endblock %}
-            let score = 0;
-            if (!p) return score;
-            const lengthOK = p.length >= 12;
-            const lower = /[a-z]/.test(p);
-            const upper = /[A-Z]/.test(p);
-            const digit = /\d/.test(p);
-            const special = /[@$!%*?&]/.test(p);
-            const variety = [lower, upper, digit, special].filter(Boolean).length;
-            score += lengthOK ? 40 : Math.min(p.length * 3, 30);
-            score += variety * 15; // up to 60
-            return Math.min(score, 100);
-        }
-        function updateBar() {
-            const s = scorePassword(pwd.value);
-            bar.style.width = s + '%';
-            bar.classList.remove('bg-danger','bg-warning','bg-success');
-            if (s < 40) bar.classList.add('bg-danger');
-            else if (s < 70) bar.classList.add('bg-warning');
-            else bar.classList.add('bg-success');
-        }
-        pwd.addEventListener('input', updateBar);
-        updateBar();
-    })();
-</script>
+                const res = strength(val);
+                bar.style.width = res.score + '%';
+                bar.className = 'progress-bar ' + levelClass[res.level];
+                text.textContent = 'Forza password: ' + levelLabel[res.level];
+            }
+            input.addEventListener('input', render);
+            render();
+        })();
+    </script>
 {% endblock %}
