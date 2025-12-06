@@ -108,6 +108,8 @@ def login():
                 return render_template('login.html', title='Accesso', form=form)
         if user and user.check_password(form.password.data):
             if user.is_active:
+                # Reset failed login attempts on successful password verification
+                user.reset_login_lock()
                 # 2FA: genera codice e invia email, salva pre-auth in sessione, mostra pagina MFA
                 code = f"{secrets.randbelow(1000000):06d}"
                 challenge = LoginChallenge.new_for(user.id, code, ttl_minutes=10)

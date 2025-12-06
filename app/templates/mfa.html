@@ -4,6 +4,7 @@
   <h2>Verifica a due fattori</h2>
   <p>Inserisci il codice di sicurezza che ti abbiamo inviato via email.</p>
   <form method="post" action="{{ url_for('main.mfa') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div id="mfa-alerts">
