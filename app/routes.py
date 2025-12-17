@@ -147,6 +147,8 @@ def login():
             flash('Accesso non riuscito. Controlla email e password.', 'danger')
     return render_template('login.html', title='Accesso', form=form)
 
+
+# per gestire la verifica MFA
 @main.route('/mfa', methods=['GET', 'POST'])
 def mfa():
     # prendi l'utente pre-autenticato dalla sessione
@@ -273,11 +275,14 @@ def dashboard():
     # l'aggiornamento last_seen è gestito dal before_request globale
     return render_template('dashboard.html', title='Dashboard')
 
+
 @main.route('/sessions')
 @login_required
 def sessions():
     items = Session.query.filter_by(user_id=current_user.id).order_by(Session.active.desc(), Session.last_seen.desc()).all()
     return render_template('sessions.html', title='Le mie sessioni', sessions=items)
+
+
 
 @main.route('/sessions/revoke', methods=['POST'])
 @login_required
