@@ -50,3 +50,8 @@ class Config:
     FORCE_HTTPS = os.environ.get('FORCE_HTTPS', 'false').lower() in ['true', 'on', '1']
     HSTS_ENABLED = os.environ.get('HSTS_ENABLED', 'false').lower() in ['true', 'on', '1']
     HSTS_MAX_AGE = int(os.environ.get('HSTS_MAX_AGE', 31536000))  # 1 anno
+
+    # Upload sicuri per il blog (immagini)
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app', 'static', 'uploads')
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 4 * 1024 * 1024))  # 4MB
+    ALLOWED_UPLOAD_EXTENSIONS = set(os.environ.get('ALLOWED_UPLOAD_EXTENSIONS', 'jpg,jpeg,png,gif').split(','))

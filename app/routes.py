@@ -7,12 +7,24 @@ principale dell'applicazione, come la gestione della registrazione, del login,
 dell'attivazione dell'account e la visualizzazione delle pagine.
 """
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session, abort
+import os
 import secrets
+from werkzeug.utils import secure_filename
 from app import db
-from app.models import User, Session, LoginChallenge
+from app.models import User, Session, LoginChallenge, Post, Comment, Rating
 from app.security import log_security_event
-from app.forms import RegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
+from app.forms import (
+    RegistrationForm,
+    LoginForm,
+    RequestResetForm,
+    ResetPasswordForm,
+    PostForm,
+    CommentForm,
+    RatingForm,
+    SearchForm,
+    AdminCodeForm,
+)
 from app.email import send_activation_email, send_reset_password_email
 from sqlalchemy.exc import IntegrityError
 from flask_login import login_user, logout_user, login_required, current_user
@@ -31,9 +43,28 @@ def session_key_func():
     # Preferisci email se presente, altrimenti IP
     return request.form.get('email') or get_remote_address()
 
-@main.route('/')
+
+def user_or_ip_key_func():
+    """Usa l'ID utente se autenticato, altrimenti IP remoto.
+
+    Utile per rate limiting di azioni autenticate come creazione post/commenti.
+    """
+    if current_user.is_authenticated:
+        return str(current_user.id)
+    return get_remote_address()
+
+@main.route('/', methods=['GET'])
 def index():
-    return redirect(url_for('main.dashboard'))
+    """Homepage pubblica: lista dei post più recenti con ricerca semplice."""
+    form = SearchForm(request.args)
+    query = Post.query.filter_by(is_public=True).order_by(Post.created_at.desc())
+    if form.validate():
+        q = (form.q.data or '').strip()
+        if q:
+            like = f"%{q}%"
+            query = query.filter((Post.title.ilike(like)) | (Post.body.ilike(like)))
+    posts = query.all()
+    return render_template('posts.html', title='Blog', posts=posts, search_form=form)
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -274,6 +305,137 @@ def logout():
 def dashboard():
     # l'aggiornamento last_seen è gestito dal before_request globale
     return render_template('dashboard.html', title='Dashboard')
+
+
+@main.route('/become-admin', methods=['GET', 'POST'])
+@login_required
+def become_admin():
+    form = AdminCodeForm()
+    if form.validate_on_submit():
+        if form.code.data == '666666':
+            current_user.role = 'admin'
+            db.session.commit()
+            flash('Ora sei amministratore!', 'success')
+            return redirect(url_for('main.dashboard'))
+        else:
+            flash('Codice errato.', 'danger')
+    return render_template('become_admin.html', title='Diventa amministratore', form=form)
+
+
+@main.route('/posts')
+def posts_list():
+    """Alias esplicito per la lista dei post (uguale a index)."""
+    return index()
+
+
+@main.route('/posts/new', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("5 per minute; 100 per day", key_func=user_or_ip_key_func) if limiter else (lambda f: f)
+def create_post():
+    form = PostForm()
+    if form.validate_on_submit():
+        image_filename = None
+        file = form.image.data
+        if file:
+            allowed_exts = current_app.config.get('ALLOWED_UPLOAD_EXTENSIONS', {"jpg", "jpeg", "png", "gif"})
+            filename = secure_filename(file.filename or '')
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if not filename or ext not in allowed_exts:
+                flash('Estensione file non permessa.', 'danger')
+                return render_template('create_post.html', title='Nuovo post', form=form)
+            upload_folder = current_app.config.get('UPLOAD_FOLDER')
+            os.makedirs(upload_folder, exist_ok=True)
+            image_filename = f"{secrets.token_hex(8)}_{filename}"
+            file.save(os.path.join(upload_folder, image_filename))
+
+        post = Post(
+            title=form.title.data,
+            body=form.body.data,
+            image_filename=image_filename,
+            author_id=current_user.id,
+            is_public=True,
+        )
+        db.session.add(post)
+        db.session.commit()
+        log_security_event(
+            event_type='post_created',
+            user_id=current_user.id,
+            message=f'Post {post.id} created',
+            ip_address=get_remote_address(),
+            user_agent=request.headers.get('User-Agent', '')
+        )
+        flash('Post creato con successo.', 'success')
+        return redirect(url_for('main.post_detail', post_id=post.id))
+    return render_template('create_post.html', title='Nuovo post', form=form)
+
+
+@main.route('/posts/<int:post_id>', methods=['GET', 'POST'])
+def post_detail(post_id):
+    post = Post.query.get_or_404(post_id)
+    if not post.is_public and not current_user.is_authenticated:
+        abort(403)
+    comment_form = CommentForm()
+    rating_form = RatingForm()
+    if request.method == 'POST' and current_user.is_authenticated:
+        # Distinguere quale form è stato inviato tramite nome del submit
+        if 'comment_submit' in request.form and comment_form.validate_on_submit():
+            comment = Comment(
+                body=comment_form.body.data,
+                author_id=current_user.id,
+                post_id=post.id,
+            )
+            db.session.add(comment)
+            db.session.commit()
+            log_security_event(
+                event_type='comment_created',
+                user_id=current_user.id,
+                message=f'Comment on post {post.id}',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            flash('Commento aggiunto.', 'success')
+            return redirect(url_for('main.post_detail', post_id=post.id))
+        elif 'rating_submit' in request.form and rating_form.validate_on_submit():
+            rating = Rating.query.filter_by(user_id=current_user.id, post_id=post.id).first()
+            if rating is None:
+                rating = Rating(user_id=current_user.id, post_id=post.id, value=rating_form.value.data)
+                db.session.add(rating)
+            else:
+                rating.value = rating_form.value.data
+            db.session.commit()
+            log_security_event(
+                event_type='post_rated',
+                user_id=current_user.id,
+                message=f'Post {post.id} rated {rating_form.value.data}',
+                ip_address=get_remote_address(),
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            flash('Voto registrato.', 'success')
+            return redirect(url_for('main.post_detail', post_id=post.id))
+    # calcolo rating medio
+    avg_rating = None
+    if post.ratings:
+        avg_rating = sum(r.value for r in post.ratings) / len(post.ratings)
+    return render_template('post_detail.html', title=post.title, post=post, comment_form=comment_form, rating_form=rating_form, avg_rating=avg_rating)
+
+
+@main.route('/posts/<int:post_id>/delete', methods=['POST'])
+@login_required
+def delete_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if not (current_user.is_admin or post.author_id == current_user.id):
+        abort(403)
+    db.session.delete(post)
+    db.session.commit()
+    log_security_event(
+        event_type='post_deleted',
+        user_id=current_user.id,
+        message=f'Post {post.id} deleted',
+        ip_address=get_remote_address(),
+        user_agent=request.headers.get('User-Agent', '')
+    )
+    flash('Post eliminato.', 'success')
+    return redirect(url_for('main.index'))
 
 
 @main.route('/sessions')

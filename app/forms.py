@@ -8,8 +8,9 @@ validazione dei dati inviati dall'utente.
 """
 
 from flask_wtf import FlaskForm, RecaptchaField
-from wtforms import StringField, PasswordField, SubmitField, BooleanField, ValidationError
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, ValidationError, TextAreaField, IntegerField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp, NumberRange, Optional
 from app.models import User
 
 class RegistrationForm(FlaskForm):
@@ -61,3 +62,30 @@ class ResetPasswordForm(FlaskForm):
     confirm_password = PasswordField('Conferma Nuova Password',
                                      validators=[DataRequired(), EqualTo('password', message='Le password devono corrispondere.')])
     submit = SubmitField('Resetta Password')
+
+
+class PostForm(FlaskForm):
+    title = StringField('Titolo', validators=[DataRequired(), Length(min=3, max=200)])
+    body = TextAreaField('Contenuto', validators=[DataRequired(), Length(min=3)])
+    image = FileField('Immagine (opzionale)', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png', 'gif'], 'Solo immagini sono permesse.')])
+    submit = SubmitField('Pubblica post')
+
+
+class CommentForm(FlaskForm):
+    body = TextAreaField('Commento', validators=[DataRequired(), Length(min=1, max=1000)])
+    submit = SubmitField('Aggiungi commento')
+
+
+class RatingForm(FlaskForm):
+    value = IntegerField('Voto (1-5)', validators=[DataRequired(), NumberRange(min=1, max=5)])
+    submit = SubmitField('Vota')
+
+
+class SearchForm(FlaskForm):
+    q = StringField('Cerca', validators=[Optional(), Length(min=1, max=200)])
+    submit = SubmitField('Cerca')
+
+
+class AdminCodeForm(FlaskForm):
+    code = StringField('Codice amministratore', validators=[DataRequired(), Length(min=1, max=32)])
+    submit = SubmitField('Diventa amministratore')

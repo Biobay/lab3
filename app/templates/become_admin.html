@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="col-md-6">
+  <h2>Diventa amministratore</h2>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+      {{ form.code.label(class="form-label") }}
+      {{ form.code(class="form-control") }}
+      {% for error in form.code.errors %}
+        <div class="text-danger small">{{ error }}</div>
+      {% endfor %}
+    </div>
+    {{ form.submit(class="btn btn-warning") }}
+  </form>
+</div>
+{% endblock %}

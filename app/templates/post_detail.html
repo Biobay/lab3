@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>{{ post.title }}</h1>
+
+  <p class="text-muted">Scritto da {{ post.author.email }} il {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+
+  {% if post.image_filename %}
+    <div class="mb-3">
+      <img src="{{ url_for('static', filename='uploads/' ~ post.image_filename) }}" alt="Immagine post" class="img-fluid">
+    </div>
+  {% endif %}
+
+  <p>{{ post.body }}</p>
+
+  {% if avg_rating is not none %}
+    <p><strong>Rating medio:</strong> {{ '%.1f'|format(avg_rating) }} / 5 ({{ post.ratings|length }} voti)</p>
+  {% else %}
+    <p><strong>Rating medio:</strong> nessun voto.</p>
+  {% endif %}
+
+  {% if current_user.is_authenticated %}
+    {% if current_user.is_admin or current_user.id == post.author_id %}
+      <form method="post" action="{{ url_for('main.delete_post', post_id=post.id) }}" class="mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare questo post?');">Elimina post</button>
+      </form>
+    {% endif %}
+
+    <hr>
+    <h3>Aggiungi un commento</h3>
+    <form method="post">
+      {{ comment_form.hidden_tag() }}
+      <div class="mb-3">
+        {{ comment_form.body.label(class="form-label") }}
+        {{ comment_form.body(class="form-control", rows=3) }}
+        {% for error in comment_form.body.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <button type="submit" name="comment_submit" class="btn btn-primary">Invia commento</button>
+    </form>
+
+    <hr>
+    <h3>Vota questo post</h3>
+    <form method="post">
+      {{ rating_form.hidden_tag() }}
+      <div class="mb-3" style="max-width: 200px;">
+        {{ rating_form.value.label(class="form-label") }}
+        {{ rating_form.value(class="form-control", min=1, max=5) }}
+        {% for error in rating_form.value.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <button type="submit" name="rating_submit" class="btn btn-secondary">Salva voto</button>
+    </form>
+  {% else %}
+    <p><a href="{{ url_for('main.login') }}">Accedi</a> per commentare o votare.</p>
+  {% endif %}
+
+  <hr>
+  <h3>Commenti</h3>
+  {% if post.comments %}
+    <ul class="list-unstyled">
+      {% for comment in post.comments %}
+        <li class="mb-2">
+          <strong>{{ comment.author.email }}</strong>
+          <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+          <p class="mb-0">{{ comment.body }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Nessun commento.</p>
+  {% endif %}
+
+{% endblock %}

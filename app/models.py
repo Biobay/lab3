@@ -16,6 +16,7 @@ from flask_login import UserMixin
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from sqlalchemy.orm import validates
+from sqlalchemy import UniqueConstraint
 
 ph = PasswordHasher()
 
@@ -36,6 +37,8 @@ class User(UserMixin, db.Model):
     activation_token_expiration = db.Column(db.DateTime, nullable=True)
     failed_login_attempts = db.Column(db.Integer, default=0)
     lock_until = db.Column(db.DateTime, nullable=True)
+    # user roles: 'user' (default), 'admin'
+    role = db.Column(db.String(20), nullable=False, default='user')
 
     def set_password(self, password):
         self.password_hash = ph.hash(password)
@@ -83,6 +86,17 @@ class User(UserMixin, db.Model):
         except:
             return None
         return User.query.get(user_id)
+
+    @validates("role")
+    def validate_role(self, key, value):
+        allowed = {"user", "admin"}
+        if value not in allowed:
+            raise ValueError(f"Invalid role '{value}'. Allowed: {allowed}")
+        return value
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
 
 class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -147,3 +161,45 @@ class LoginChallenge(db.Model):
 
     def consume(self):
         self.consumed = True
+
+
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    image_filename = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_public = db.Column(db.Boolean, default=True, nullable=False)
+
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    author = db.relationship('User', backref=db.backref('posts', lazy=True))
+
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+
+    author = db.relationship('User', backref=db.backref('comments', lazy=True))
+    post = db.relationship('Post', backref=db.backref('comments', lazy=True, cascade='all, delete-orphan'))
+
+
+class Rating(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+
+    user = db.relationship('User', backref=db.backref('ratings', lazy=True))
+    post = db.relationship('Post', backref=db.backref('ratings', lazy=True, cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'post_id', name='uq_rating_user_post'),
+    )
+
