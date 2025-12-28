@@ -45,7 +45,7 @@ def create_app(config_class=Config):
     if Limiter and get_remote_address:
         storage_uri = app.config.get('RATELIMIT_STORAGE_URI')
         limiter = Limiter(
-            get_remote_address,
+            key_func=get_remote_address,
             app=app,
             default_limits=["200 per day", "50 per hour"],
             storage_uri=storage_uri
