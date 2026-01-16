@@ -23,6 +23,7 @@
     {% if current_user.is_admin or current_user.id == post.author_id %}
       <form method="post" action="{{ url_for('main.delete_post', post_id=post.id) }}" class="mb-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <a href="{{ url_for('main.edit_post', post_id=post.id) }}" class="btn btn-warning btn-sm me-2">Modifica post</a>
         <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare questo post?');">Elimina post</button>
       </form>
     {% endif %}
@@ -67,6 +68,12 @@
           <strong>{{ comment.author.email }}</strong>
           <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
           <p class="mb-0">{{ comment.body }}</p>
+          {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == comment.author_id) %}
+            <form method="post" action="{{ url_for('main.delete_comment', comment_id=comment.id) }}" class="d-inline ms-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare questo commento?');">Elimina</button>
+            </form>
+          {% endif %}
         </li>
       {% endfor %}
     </ul>

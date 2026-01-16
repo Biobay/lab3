@@ -322,6 +322,15 @@ def become_admin():
     return render_template('become_admin.html', title='Diventa amministratore', form=form)
 
 
+@main.route('/admin/users', methods=['GET'])
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        abort(403)
+    users = User.query.order_by(User.id.asc()).all()
+    return render_template('admin_users.html', title='Gestione utenti', users=users)
+
+
 @main.route('/posts')
 def posts_list():
     """Alias esplicito per la lista dei post (uguale a index)."""
@@ -333,6 +342,7 @@ def posts_list():
 @limiter.limit("5 per minute; 100 per day", key_func=user_or_ip_key_func) if limiter else (lambda f: f)
 def create_post():
     form = PostForm()
+    max_upload_mb = current_app.config.get('MAX_CONTENT_LENGTH', 4 * 1024 * 1024) // (1024 * 1024)
     if form.validate_on_submit():
         image_filename = None
         file = form.image.data
@@ -342,7 +352,7 @@ def create_post():
             ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
             if not filename or ext not in allowed_exts:
                 flash('Estensione file non permessa.', 'danger')
-                return render_template('create_post.html', title='Nuovo post', form=form)
+                return render_template('create_post.html', title='Nuovo post', form=form, max_upload_mb=max_upload_mb)
             upload_folder = current_app.config.get('UPLOAD_FOLDER')
             os.makedirs(upload_folder, exist_ok=True)
             image_filename = f"{secrets.token_hex(8)}_{filename}"
@@ -366,7 +376,48 @@ def create_post():
         )
         flash('Post creato con successo.', 'success')
         return redirect(url_for('main.post_detail', post_id=post.id))
-    return render_template('create_post.html', title='Nuovo post', form=form)
+    return render_template('create_post.html', title='Nuovo post', form=form, max_upload_mb=max_upload_mb)
+
+
+@main.route('/posts/<int:post_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if not (current_user.is_admin or post.author_id == current_user.id):
+        abort(403)
+
+    form = PostForm(obj=post)
+    max_upload_mb = current_app.config.get('MAX_CONTENT_LENGTH', 4 * 1024 * 1024) // (1024 * 1024)
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.body = form.body.data
+
+        file = form.image.data
+        if file:
+            allowed_exts = current_app.config.get('ALLOWED_UPLOAD_EXTENSIONS', {"jpg", "jpeg", "png", "gif"})
+            filename = secure_filename(file.filename or '')
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if not filename or ext not in allowed_exts:
+                flash('Estensione file non permessa.', 'danger')
+                return render_template('create_post.html', title='Modifica post', form=form, post=post, max_upload_mb=max_upload_mb)
+            upload_folder = current_app.config.get('UPLOAD_FOLDER')
+            os.makedirs(upload_folder, exist_ok=True)
+            image_filename = f"{secrets.token_hex(8)}_{filename}"
+            file.save(os.path.join(upload_folder, image_filename))
+            post.image_filename = image_filename
+
+        db.session.commit()
+        log_security_event(
+            event_type='post_updated',
+            user_id=current_user.id,
+            message=f'Post {post.id} updated',
+            ip_address=get_remote_address(),
+            user_agent=request.headers.get('User-Agent', '')
+        )
+        flash('Post aggiornato con successo.', 'success')
+        return redirect(url_for('main.post_detail', post_id=post.id))
+
+    return render_template('create_post.html', title='Modifica post', form=form, post=post, max_upload_mb=max_upload_mb)
 
 
 @main.route('/posts/<int:post_id>', methods=['GET', 'POST'])
@@ -436,6 +487,69 @@ def delete_post(post_id):
     )
     flash('Post eliminato.', 'success')
     return redirect(url_for('main.index'))
+
+
+@main.route('/comments/<int:comment_id>/delete', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+    if not (current_user.is_admin or comment.author_id == current_user.id):
+        abort(403)
+
+    post_id = comment.post_id
+    db.session.delete(comment)
+    db.session.commit()
+    log_security_event(
+        event_type='comment_deleted',
+        user_id=current_user.id,
+        message=f'Comment {comment.id} on post {post_id} deleted',
+        ip_address=get_remote_address(),
+        user_agent=request.headers.get('User-Agent', '')
+    )
+    flash('Commento eliminato.', 'success')
+    return redirect(url_for('main.post_detail', post_id=post_id))
+
+
+@main.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_user(user_id):
+    if not current_user.is_admin:
+        abort(403)
+
+    user = User.query.get_or_404(user_id)
+
+    if user.id == current_user.id:
+        flash('Non puoi eliminare il tuo stesso account amministratore.', 'danger')
+        return redirect(url_for('main.admin_users'))
+
+    if user.is_admin:
+        flash('Non puoi eliminare un altro amministratore.', 'danger')
+        return redirect(url_for('main.admin_users'))
+
+    # Elimina entità collegate all'utente
+    Session.query.filter_by(user_id=user.id).delete()
+    LoginChallenge.query.filter_by(user_id=user.id).delete()
+    Rating.query.filter_by(user_id=user.id).delete()
+    Comment.query.filter_by(author_id=user.id).delete()
+
+    # Elimina i post dell'utente (con commenti/ratings collegati tramite cascade)
+    posts = Post.query.filter_by(author_id=user.id).all()
+    for post in posts:
+        db.session.delete(post)
+
+    db.session.delete(user)
+    db.session.commit()
+
+    log_security_event(
+        event_type='user_deleted',
+        user_id=current_user.id,
+        message=f'User {user.id} ({user.email}) permanently deleted by admin',
+        ip_address=get_remote_address(),
+        user_agent=request.headers.get('User-Agent', '')
+    )
+
+    flash('Utente eliminato definitivamente.', 'success')
+    return redirect(url_for('main.admin_users'))
 
 
 @main.route('/sessions')

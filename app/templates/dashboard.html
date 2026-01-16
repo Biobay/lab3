@@ -9,6 +9,9 @@
             <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">Nuovo post</a>
             <a href="{{ url_for('main.sessions') }}" class="btn btn-outline-secondary">Le mie sessioni</a>
             <a href="{{ url_for('main.become_admin') }}" class="btn btn-warning">Diventa amministratore</a>
+            {% if current_user.is_admin %}
+                <a href="{{ url_for('main.admin_users') }}" class="btn btn-danger">Gestisci utenti</a>
+            {% endif %}
         </div>
     </div>
     <p>Benvenuto, {{ current_user.nome }}!</p>

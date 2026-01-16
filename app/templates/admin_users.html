@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Gestione utenti</h1>
+
+  <p>Solo gli amministratori possono accedere a questa pagina e cancellare definitivamente gli account utenti.</p>
+
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Cognome</th>
+        <th>Email</th>
+        <th>Ruolo</th>
+        <th>Attivo</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+        <tr>
+          <td>{{ user.id }}</td>
+          <td>{{ user.nome }}</td>
+          <td>{{ user.cognome }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.role }}</td>
+          <td>{{ 'Sì' if user.is_active else 'No' }}</td>
+          <td>
+            {% if not user.is_admin %}
+              <form method="post" action="{{ url_for('main.admin_delete_user', user_id=user.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare definitivamente questo utente? L\'operazione è irreversibile.');">Elimina</button>
+              </form>
+            {% else %}
+              <span class="text-muted">Amministratore</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

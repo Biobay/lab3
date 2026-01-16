@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <h1>Nuovo post</h1>
+  <h1>{{ title }}</h1>
   <form method="post" enctype="multipart/form-data">
     {{ form.hidden_tag() }}
 
@@ -24,6 +24,9 @@
     <div class="mb-3">
       {{ form.image.label(class="form-label") }}
       {{ form.image(class="form-control") }}
+      {% if max_upload_mb %}
+        <div class="form-text">Dimensione massima del file: {{ max_upload_mb }} MB.</div>
+      {% endif %}
       {% for error in form.image.errors %}
         <div class="text-danger small">{{ error }}</div>
       {% endfor %}
