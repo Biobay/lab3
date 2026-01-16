@@ -3,25 +3,25 @@
 {% block content %}
 <div class="col-md-12">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="mb-0">Dashboard Privata</h2>
+        <h2 class="mb-0">Private Dashboard</h2>
         <div class="btn-group" role="group">
-            <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">Vai al blog</a>
-            <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">Nuovo post</a>
-            <a href="{{ url_for('main.sessions') }}" class="btn btn-outline-secondary">Le mie sessioni</a>
-            <a href="{{ url_for('main.become_admin') }}" class="btn btn-warning">Diventa amministratore</a>
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">Go to blog</a>
+            <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">New post</a>
+            <a href="{{ url_for('main.sessions') }}" class="btn btn-outline-secondary">My sessions</a>
+            <a href="{{ url_for('main.become_admin') }}" class="btn btn-warning">Become administrator</a>
             {% if current_user.is_admin %}
-                <a href="{{ url_for('main.admin_users') }}" class="btn btn-danger">Gestisci utenti</a>
+                <a href="{{ url_for('main.admin_users') }}" class="btn btn-danger">Manage users</a>
             {% endif %}
         </div>
     </div>
-    <p>Benvenuto, {{ current_user.nome }}!</p>
-    <p>Questa è la tua area riservata. Da qui potrai gestire le tue operazioni.</p>
+    <p>Welcome, {{ current_user.nome }}!</p>
+    <p>This is your private area. From here you can manage your operations.</p>
 
     <div class="card mt-4">
         <div class="card-body">
-            <h5 class="card-title">Suggerimento sicurezza</h5>
-            <p class="card-text">Controlla le tue sessioni attive, i dispositivi recenti e gli IP collegati dalla sezione <strong>Le mie sessioni</strong>.</p>
-            <a href="{{ url_for('main.sessions') }}" class="btn btn-primary">Vai alle sessioni</a>
+            <h5 class="card-title">Security Tip</h5>
+            <p class="card-text">Check your active sessions, recent devices, and connected IPs from the <strong>My Sessions</strong> section.</p>
+            <a href="{{ url_for('main.sessions') }}" class="btn btn-primary">Go to Sessions</a>
         </div>
     </div>
 </div>

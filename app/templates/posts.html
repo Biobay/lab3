@@ -6,13 +6,13 @@
   <form method="get" class="mb-3">
     {{ search_form.hidden_tag() }}
     <div class="input-group">
-      {{ search_form.q(class="form-control", placeholder="Cerca nei post...") }}
-      <button class="btn btn-outline-secondary" type="submit">Cerca</button>
+      {{ search_form.q(class="form-control", placeholder="Search posts...") }}
+      <button class="btn btn-outline-secondary" type="submit">Search</button>
     </div>
   </form>
 
   {% if current_user.is_authenticated %}
-    <a href="{{ url_for('main.create_post') }}" class="btn btn-primary mb-3">Nuovo post</a>
+    <a href="{{ url_for('main.create_post') }}" class="btn btn-primary mb-3">New post</a>
   {% endif %}
 
   {% if posts %}
@@ -24,11 +24,11 @@
             <small>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
           </div>
           <p class="mb-1 text-muted">{{ post.body[:200] }}{% if post.body|length > 200 %}...{% endif %}</p>
-          <small>Autore: {{ post.author.email }}</small>
+          <small>Author: {{ post.author.email }}</small>
         </a>
       {% endfor %}
     </div>
   {% else %}
-    <p>Nessun post presente.</p>
+    <p>No posts available.</p>
   {% endif %}
 {% endblock %}

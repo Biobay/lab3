@@ -3,33 +3,33 @@
 {% block content %}
   <h1>{{ post.title }}</h1>
 
-  <p class="text-muted">Scritto da {{ post.author.email }} il {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+  <p class="text-muted">Written by {{ post.author.email }} on {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
 
   {% if post.image_filename %}
     <div class="mb-3">
-      <img src="{{ url_for('static', filename='uploads/' ~ post.image_filename) }}" alt="Immagine post" class="img-fluid">
+      <img src="{{ url_for('static', filename='uploads/' ~ post.image_filename) }}" alt="Post image" class="img-fluid">
     </div>
   {% endif %}
 
   <p>{{ post.body }}</p>
 
   {% if avg_rating is not none %}
-    <p><strong>Rating medio:</strong> {{ '%.1f'|format(avg_rating) }} / 5 ({{ post.ratings|length }} voti)</p>
+    <p><strong>Average rating:</strong> {{ '%.1f'|format(avg_rating) }} / 5 ({{ post.ratings|length }} votes)</p>
   {% else %}
-    <p><strong>Rating medio:</strong> nessun voto.</p>
+    <p><strong>Average rating:</strong> no votes yet.</p>
   {% endif %}
 
   {% if current_user.is_authenticated %}
     {% if current_user.is_admin or current_user.id == post.author_id %}
       <form method="post" action="{{ url_for('main.delete_post', post_id=post.id) }}" class="mb-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <a href="{{ url_for('main.edit_post', post_id=post.id) }}" class="btn btn-warning btn-sm me-2">Modifica post</a>
-        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare questo post?');">Elimina post</button>
+        <a href="{{ url_for('main.edit_post', post_id=post.id) }}" class="btn btn-warning btn-sm me-2">Edit post</a>
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this post?');">Delete post</button>
       </form>
     {% endif %}
 
     <hr>
-    <h3>Aggiungi un commento</h3>
+    <h3>Add a comment</h3>
     <form method="post">
       {{ comment_form.hidden_tag() }}
       <div class="mb-3">
@@ -39,11 +39,11 @@
           <div class="text-danger small">{{ error }}</div>
         {% endfor %}
       </div>
-      <button type="submit" name="comment_submit" class="btn btn-primary">Invia commento</button>
+      <button type="submit" name="comment_submit" class="btn btn-primary">Submit comment</button>
     </form>
 
     <hr>
-    <h3>Vota questo post</h3>
+    <h3>Rate this post</h3>
     <form method="post">
       {{ rating_form.hidden_tag() }}
       <div class="mb-3" style="max-width: 200px;">
@@ -53,14 +53,14 @@
           <div class="text-danger small">{{ error }}</div>
         {% endfor %}
       </div>
-      <button type="submit" name="rating_submit" class="btn btn-secondary">Salva voto</button>
+      <button type="submit" name="rating_submit" class="btn btn-secondary">Save rating</button>
     </form>
   {% else %}
-    <p><a href="{{ url_for('main.login') }}">Accedi</a> per commentare o votare.</p>
+    <p><a href="{{ url_for('main.login') }}">Log in</a> to comment or rate.</p>
   {% endif %}
 
   <hr>
-  <h3>Commenti</h3>
+  <h3>Comments</h3>
   {% if post.comments %}
     <ul class="list-unstyled">
       {% for comment in post.comments %}
@@ -71,14 +71,14 @@
           {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == comment.author_id) %}
             <form method="post" action="{{ url_for('main.delete_comment', comment_id=comment.id) }}" class="d-inline ms-2">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Sei sicuro di voler eliminare questo commento?');">Elimina</button>
+              <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this comment?');">Delete</button>
             </form>
           {% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p>Nessun commento.</p>
+    <p>No comments yet.</p>
   {% endif %}
 
 {% endblock %}

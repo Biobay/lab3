@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-4" style="max-width: 480px;">
-  <h2>Verifica a due fattori</h2>
-  <p>Inserisci il codice di sicurezza che ti abbiamo inviato via email.</p>
+  <h2>Two-factor verification</h2>
+  <p>Enter the security code we sent you by email.</p>
   <form method="post" action="{{ url_for('main.mfa') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -16,15 +16,15 @@
     {% endwith %}
     <input type="hidden" name="user_id" value="{{ user_id }}" />
     <div class="mb-3">
-      <label for="code" class="form-label">Codice di sicurezza</label>
+      <label for="code" class="form-label">Security Code</label>
       <input type="text" class="form-control" id="code" name="code" maxlength="6" required placeholder="000000" />
     </div>
-    <button type="submit" class="btn btn-primary">Verifica</button>
-    <a href="{{ url_for('main.login') }}" class="btn btn-link">Annulla</a>
+    <button type="submit" class="btn btn-primary">Verify</button>
+    <a href="{{ url_for('main.login') }}" class="btn btn-link">Cancel</a>
   </form>
 </div>
 <script>
-  // Nasconde i messaggi flash dopo 2 secondi
+  // Hide flash messages after 2 seconds
   setTimeout(function() {
     var alerts = document.getElementById('mfa-alerts');
     if (alerts) {

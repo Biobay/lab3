@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Attiva il tuo Account</title>
+    <title>Activate Your Account</title>
 </head>
 <body>
-    <h2>Ciao {{ user.nome }},</h2>
-    <p>Benvenuto nella Banca Sicura!</p>
-    <p>Per attivare il tuo account e completare la registrazione, per favore clicca sul pulsante qui sotto:</p>
+    <h2>Hello {{ user.nome }},</h2>
+    <p>Welcome to Secure Bank!</p>
+    <p>To activate your account and complete your registration, please click the button below:</p>
     <p>
-        <a href="{{ activation_link }}" style="background-color: #004085; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Attiva Account</a>
+        <a href="{{ activation_link }}" style="background-color: #004085; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Activate Account</a>
     </p>
-    <p>Se il pulsante non funziona, puoi copiare e incollare il seguente link nel tuo browser:</p>
+    <p>If the button does not work, you can copy and paste the following link into your browser:</p>
     <p><a href="{{ activation_link }}">{{ activation_link }}</a></p>
-    <p>Se non hai richiesto tu questa registrazione, per favore ignora questa email.</p>
+    <p>If you did not request this registration, please ignore this email.</p>
     <br>
-    <p>Cordiali saluti,</p>
-    <p><strong>Il team della Banca Sicura</strong></p>
+    <p>Best regards,</p>
+    <p><strong>The Secure Bank Team</strong></p>
 </body>
 </html>

@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-4">
-  <h2>Le mie sessioni</h2>
-  <p>Visualizza e revoca le sessioni attive sui tuoi dispositivi.</p>
+  <h2>My Sessions</h2>
+  <p>View and revoke active sessions on your devices.</p>
   <table class="table table-striped">
     <thead>
       <tr>
-        <th>Stato</th>
-        <th>Dispositivo</th>
+        <th>Status</th>
+        <th>Device</th>
         <th>IP</th>
-        <th>Creata</th>
-        <th>Ultima attività</th>
-        <th>Azione</th>
+        <th>Created</th>
+        <th>Last Activity</th>
+        <th>Action</th>
       </tr>
     </thead>
     <tbody>
@@ -19,9 +19,9 @@
       <tr>
         <td>
           {% if s.active %}
-            <span class="badge bg-success">Attiva</span>
+            <span class="badge bg-success">active</span>
           {% else %}
-            <span class="badge bg-secondary">Revocata</span>
+            <span class="badge bg-secondary">revoked</span>
           {% endif %}
         </td>
         <td>{{ s.user_agent or '-' }}</td>
@@ -33,7 +33,7 @@
           <form method="post" action="{{ url_for('main.revoke_session') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="token" value="{{ s.session_token }}">
-            <button type="submit" class="btn btn-sm btn-danger">Revoca</button>
+            <button type="submit" class="btn btn-sm btn-danger">Revoke</button>
           </form>
           {% else %}
             —

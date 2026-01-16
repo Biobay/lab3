@@ -1,11 +1,11 @@
-Ciao {{ user.nome }},
+Hello {{ user.nome }},
 
-Benvenuto nella Banca Sicura!
+Welcome to Secure Bank!
 
-Per attivare il tuo account e completare la registrazione, per favore clicca sul seguente link:
+To activate your account and complete your registration, please click the following link:
 {{ activation_link }}
 
-Se non hai richiesto tu questa registrazione, per favore ignora questa email.
+If you did not request this registration, please ignore this email.
 
-Cordiali saluti,
-Il team della Banca Sicura
+Best regards,
+The Secure Bank Team

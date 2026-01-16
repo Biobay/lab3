@@ -25,7 +25,7 @@
       {{ form.image.label(class="form-label") }}
       {{ form.image(class="form-control") }}
       {% if max_upload_mb %}
-        <div class="form-text">Dimensione massima del file: {{ max_upload_mb }} MB.</div>
+        <div class="form-text">Maximum file size: {{ max_upload_mb }} MB.</div>
       {% endif %}
       {% for error in form.image.errors %}
         <div class="text-danger small">{{ error }}</div>
